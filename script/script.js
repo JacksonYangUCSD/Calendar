@@ -13,8 +13,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeModal = document.querySelector('.close-modal');
     const taskForm = document.getElementById('task-form');
     const taskDateInput = document.getElementById('task-date');
+    const taskNameInput = document.getElementById('task-name');
+    const taskDetailsInput = document.getElementById('task-details');
 
     let currentDate = new Date();
+    let editMode = false;
+    let editTaskIndex = null;
+    let editTaskDate = null;
 
     // Function to populate the calendar
     function populateCalendar(date) {
@@ -82,8 +87,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Function to open the task modal and set the date
-    function openAddTaskModal(day, month, year) {
+    function openAddTaskModal(day, month, year, task = null, taskIndex = null) {
         taskDateInput.value = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; // Set the date input to the selected date
+        
+        if (task) { // If editing a task
+            editMode = true;
+            editTaskIndex = taskIndex;
+            editTaskDate = taskDateInput.value;
+            taskNameInput.value = task.name;
+            taskDetailsInput.value = task.details;
+        } else {
+            editMode = false;
+            taskNameInput.value = '';
+            taskDetailsInput.value = '';
+        }
+
         taskModal.style.display = 'block'; // Show the modal
     }
 
@@ -95,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
         const tasksForDay = tasks[taskDate] || [];
 
-        selectedDateDisplay.textContent = `${formattedDate}`; // Show formatted date in sidebar
+        selectedDateDisplay.textContent = `Tasks for ${formattedDate}`; // Show formatted date in sidebar
         taskList.innerHTML = ''; // Clear existing tasks
 
         if (tasksForDay.length === 0) {
@@ -103,12 +121,49 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        tasksForDay.forEach(task => {
+        tasksForDay.forEach((task, index) => {
             const taskItem = document.createElement('div');
             taskItem.classList.add('task-item');
-            taskItem.textContent = `${task.name}: ${task.details}`;
+            taskItem.innerHTML = `<span><b>${task.name}</b>: ${task.details}</span>`;
+
+            // Button container to align buttons to the right
+            const buttonContainer = document.createElement('div');
+            buttonContainer.classList.add('task-buttons');
+
+            // Add Edit Button
+            const editButton = document.createElement('button');
+            editButton.textContent = 'Edit';
+            editButton.classList.add('edit-task-button');
+            editButton.addEventListener('click', () => {
+                openAddTaskModal(day, month - 1, year, task, index); // Open modal in edit mode
+            });
+
+            // Add Delete Button
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.classList.add('delete-task-button');
+            deleteButton.addEventListener('click', () => {
+                deleteTask(taskDate, index); // Delete the task
+            });
+
+            buttonContainer.appendChild(editButton);
+            buttonContainer.appendChild(deleteButton);
+            taskItem.appendChild(buttonContainer);
             taskList.appendChild(taskItem);
         });
+    }
+
+    // Function to delete a task
+    function deleteTask(taskDate, taskIndex) {
+        const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
+        if (tasks[taskDate]) {
+            tasks[taskDate].splice(taskIndex, 1); // Remove the task from the array
+            localStorage.setItem('tasks', JSON.stringify(tasks)); // Save the updated tasks to local storage
+
+            // Refresh the task list for the current date
+            const [year, month, day] = taskDate.split('-');
+            showTasksForDate(parseInt(year), parseInt(month), parseInt(day));
+        }
     }
 
     // Event listener to close the modal
@@ -123,28 +178,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Handle form submission to add a task
+    // Handle form submission to add or edit a task
     taskForm.addEventListener('submit', (e) => {
         e.preventDefault(); // Prevent form from submitting in the default way
-        const taskName = document.getElementById('task-name').value;
-        const taskDetails = document.getElementById('task-details').value;
+        const taskName = taskNameInput.value;
+        const taskDetails = taskDetailsInput.value;
         const taskDate = taskDateInput.value;
 
-        // Save task to local storage
+        // Save or edit task in local storage
         const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
         if (!tasks[taskDate]) {
             tasks[taskDate] = [];
         }
-        tasks[taskDate].push({ name: taskName, details: taskDetails });
+
+        if (editMode && editTaskIndex !== null) {
+            // Edit the existing task
+            tasks[editTaskDate][editTaskIndex] = { name: taskName, details: taskDetails };
+        } else {
+            // Add a new task
+            tasks[taskDate].push({ name: taskName, details: taskDetails });
+        }
+
         localStorage.setItem('tasks', JSON.stringify(tasks));
 
-        // Refresh the calendar to show the new task
+        // Refresh the calendar to show the new or edited task
         populateCalendar(currentDate);
 
-        // Show tasks for today after adding a new task
+        // Show tasks for the selected date after adding or editing a task
         showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
 
-        // Close the modal after adding the task
+        // Close the modal after adding or editing the task
         taskModal.style.display = 'none';
     });
 
