@@ -1,58 +1,72 @@
 /* styles.css */
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Arial', sans-serif;
     margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: #f4f4f4;
+    background-color: #fef8f3; /* Light background color */
     color: #333;
     height: 100vh;
 }
 
 header#head_page {
-    background-color: #3b5998;
-    color: white;
+    background-color: #fef8f3; /* Match the body background */
+    color: #333;
     padding: 20px;
     text-align: center;
     font-size: 24px;
     width: 100%;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px; /* Add margin to create space below the header */
 }
 
 main#home-main {
     flex: 1;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start; /* Align items to the top */
     padding: 20px;
     width: 100%;
     max-width: 1200px;
+    height: 80vh; /* Set a maximum height for the main container */
+}
+
+#calendar-task-container {
+    display: flex;
+    width: 100%;
+    max-width: 1200px;
+    justify-content: space-between;
+    height: 100%; /* Make the height of the container fill its parent */
 }
 
 #calendar-container {
-    width: 100%;
-    max-width: 800px;
+    width: 60%; /* Calendar takes up 60% of the container width */
     background-color: white;
-    border-radius: 8px;
+    border-radius: 12px; /* Rounded corners */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    height: 100%; /* Set height to fill parent container */
+    max-height: 100%; /* Limit the height to the container's maximum height */
 }
 
 .calendar {
     display: flex;
     flex-direction: column;
-    padding: 20px;
+    height: 100%; /* Fill the available height */
 }
 
 .calendar .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .head-buttons {
@@ -64,28 +78,29 @@ main#home-main {
     background-color: transparent;
     border: none;
     cursor: pointer;
-    padding: 10px;
+    padding: 5px;
     font-size: 18px;
 }
 
 .month-year {
-    font-size: 18px;
+    font-size: 24px;
     font-weight: bold;
     text-align: center;
-    margin: 0 20px;
+    color: #5f3d7e; /* Purple color */
 }
 
 .today {
-    background-color: #3b5998;
-    color: white;
-    border: none;
-    padding: 10px 20px;
+    background-color: transparent;
+    color: #5f3d7e;
+    border: 1px solid #5f3d7e;
+    padding: 5px 15px;
     border-radius: 5px;
     cursor: pointer;
+    font-weight: bold;
 }
 
 .today:hover {
-    background-color: #2d4373;
+    background-color: #f0f0f0;
 }
 
 .days {
@@ -94,59 +109,104 @@ main#home-main {
     text-align: center;
     font-weight: bold;
     border-bottom: 1px solid #ccc;
-    padding-bottom: 10px;
+    padding-bottom: 5px;
     margin-bottom: 10px;
 }
 
 .day {
-    padding: 10px 0;
+    padding: 5px 0;
+    color: #333;
 }
 
 .dates {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: 1fr; /* Flexible height to fit within the fixed container */
     text-align: center;
-    gap: 10px;
+    gap: 10px; /* Space between days */
+    flex-grow: 1; /* Allows date cells to fill the remaining space */
+    overflow-y: auto; /* Enable vertical scrolling if content exceeds container */
+    max-height: 100%; /* Limit the height to the container's maximum height */
 }
 
 .dates .date {
-    padding: 15px 0;
-    background-color: #f4f4f4;
-    border-radius: 5px;
-    cursor: pointer;
+    background-color: white;
+    border-radius: 10px; /* Rounded square for the date */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-size: 14px;
     position: relative;
+    cursor: pointer;
+    border: 2px solid #2c2c2c;
+    transition: background-color 0.3s ease; /* Smooth transition for hover effect */
 }
 
 .dates .date:hover {
-    background-color: #ddd;
+    background-color: #f0f0f0; /* Light gray on hover */
 }
 
-.dates .date.today {
-    background-color: #3b5998;
-    color: white;
-    font-weight: bold;
-}
-
-/* Button to add tasks */
-.add-task-button {
-    background-color: #3b5998;
+.dates .date .add-task-button {
+    background-color: #5f3d7e; /* Purple color */
     color: white;
     border: none;
     border-radius: 50%;
     cursor: pointer;
-    font-size: 14px;
-    position: absolute;
-    top: 5px;
-    right: 5px;
+    font-size: 10px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: absolute; /* Position the button absolutely */
+    top: 5px; /* Position from the top */
+    right: 5px; /* Position from the right */
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.3s ease; /* Smooth transition for hover effect */
 }
 
-.add-task-button:hover {
-    background-color: #2d4373;
+.dates .date:hover .add-task-button {
+    opacity: 1; /* Visible on hover */
+}
+
+.dates .date.grayed {
+    color: #b0b0b0; /* Gray out non-current month dates */
+    border: 2px solid #c0c0c0;
+}
+
+.dates .date.today {
+    background-color: #70b0f4; /* Blue background for today's date */
+    color: white;
+    font-weight: bold;
+    border-radius: 8px; /* Rounded corners for the square */
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    padding: 5px;
+}
+
+/* Task Sidebar */
+#task-sidebar {
+    width: 35%; /* Task sidebar takes up 35% of the container width */
+    background-color: white;
+    border-radius: 12px; /* Rounded corners */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin-left: 20px; /* Space between calendar and sidebar */
+    height: 100%; /* Set height to fill parent container */
+    overflow-y: auto; /* Enable scrolling if content exceeds the height */
+}
+
+#task-sidebar h3 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #5f3d7e; /* Purple color for the title */
 }
 
 /* Modal styles */
 .modal {
-    display: none; /* Hidden by default */
+    display: none;
     position: fixed;
     z-index: 1;
     left: 0;
@@ -165,13 +225,33 @@ main#home-main {
     width: 80%;
     max-width: 400px;
     border-radius: 8px;
+    position: relative; /* Relative positioning for the close button */
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center content horizontally */
+    position: relative; /* Position relative to contain the close button */
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+}
+
+.modal-header h2 {
+    flex-grow: 1; /* Allow the text to grow and occupy available space */
+    text-align: center;
+    margin: 0;
 }
 
 .close-modal {
     color: #aaa;
-    float: right;
     font-size: 28px;
     font-weight: bold;
+    cursor: pointer;
+    position: absolute; /* Position the close button absolutely */
+    right: 10px; /* Adjust the right margin */
+    top: 50%; /* Position vertically centered */
+    transform: translateY(-50%); /* Adjust to vertically center the close button */
 }
 
 .close-modal:hover,
@@ -184,14 +264,14 @@ main#home-main {
 footer {
     width: 100%;
     padding: 20px;
-    background-color: #3b5998;
-    color: white;
+    background-color: #fef8f3;
+    color: #333;
     text-align: center;
     font-size: 14px;
 }
 
 footer a {
-    color: #f1f1f1;
+    color: #5f3d7e;
     text-decoration: none;
 }
 
