@@ -236,4 +236,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Show tasks for today by default
     showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
+
+    
 });
