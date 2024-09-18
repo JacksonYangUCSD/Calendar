@@ -1,17 +1,65 @@
-const express = require('express'); // Import the Express library
-const path = require('path'); // Import the path module
-const app = express(); // Create an instance of the Express app
-const PORT = process.env.PORT || 3000; // Define the port (Heroku uses process.env.PORT)
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const bodyParser = require('body-parser');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Serve static files from the "public" directory (where your HTML, CSS, and JS files are)
+// Middleware to parse JSON data
+app.use(bodyParser.json());
+
+// Serve static files (e.g., index.html, styles, scripts)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Define a route to serve your main HTML file (if needed)
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html')); // Adjust the path as needed
+// Endpoint to handle saving tasks
+app.post('/save-task', (req, res) => {
+    const taskData = req.body;
+    const folderPath = path.join(__dirname, 'tasks');
+    const filePath = path.join(folderPath, 'tasks.json');
+
+    // Create folder if it doesn't exist
+    if (!fs.existsSync(folderPath)) {
+        fs.mkdirSync(folderPath, { recursive: true });
+    }
+
+    // Read existing tasks or initialize an empty array
+    let tasks = {};
+    if (fs.existsSync(filePath)) {
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        tasks = JSON.parse(fileContent);
+    }
+
+    // Add or update task data
+    const taskDate = taskData.date;
+    if (!tasks[taskDate]) {
+        tasks[taskDate] = [];
+    }
+    tasks[taskDate].push({
+        name: taskData.name,
+        details: taskData.details,
+    });
+
+    // Save tasks to file
+    fs.writeFileSync(filePath, JSON.stringify(tasks, null, 2));
+
+    res.json({ message: 'Task saved successfully!' });
+});
+
+// Endpoint to retrieve tasks
+app.get('/get-tasks', (req, res) => {
+    const folderPath = path.join(__dirname, 'tasks');
+    const filePath = path.join(folderPath, 'tasks.json');
+
+    if (fs.existsSync(filePath)) {
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        const tasks = JSON.parse(fileContent);
+        res.json(tasks);
+    } else {
+        res.json({});
+    }
 });
 
 // Start the server
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });

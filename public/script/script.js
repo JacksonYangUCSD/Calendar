@@ -17,9 +17,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const taskDetailsInput = document.getElementById('task-details');
 
     let currentDate = new Date();
-    let editMode = false;
-    let editTaskIndex = null;
-    let editTaskDate = null;
+    let allTasks = {}; // Store all tasks here
+
+    // Fetch tasks from the server
+    async function fetchTasks() {
+        try {
+            const response = await fetch('/get-tasks');
+            allTasks = await response.json();
+            populateCalendar(currentDate);
+        } catch (error) {
+            console.error('Error fetching tasks:', error);
+        }
+    }
 
     // Function to populate the calendar
     function populateCalendar(date) {
@@ -91,13 +100,9 @@ document.addEventListener('DOMContentLoaded', () => {
         taskDateInput.value = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; // Set the date input to the selected date
         
         if (task) { // If editing a task
-            editMode = true;
-            editTaskIndex = taskIndex;
-            editTaskDate = taskDateInput.value;
             taskNameInput.value = task.name;
             taskDetailsInput.value = task.details;
         } else {
-            editMode = false;
             taskNameInput.value = '';
             taskDetailsInput.value = '';
         }
@@ -110,8 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const formattedDate = `${monthNames[month - 1]} ${day}, ${year}`; // Format the date
         const taskDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
-        const tasksForDay = tasks[taskDate] || [];
+        const tasksForDay = allTasks[taskDate] || [];
 
         selectedDateDisplay.textContent = `Tasks for ${formattedDate}`; // Show formatted date in sidebar
         taskList.innerHTML = ''; // Clear existing tasks
@@ -155,14 +159,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to delete a task
     function deleteTask(taskDate, taskIndex) {
-        const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
-        if (tasks[taskDate]) {
-            tasks[taskDate].splice(taskIndex, 1); // Remove the task from the array
-            localStorage.setItem('tasks', JSON.stringify(tasks)); // Save the updated tasks to local storage
+        if (allTasks[taskDate]) {
+            allTasks[taskDate].splice(taskIndex, 1); // Remove the task from the array
+            saveTasks(); // Save the updated tasks to the server
 
             // Refresh the task list for the current date
             const [year, month, day] = taskDate.split('-');
             showTasksForDate(parseInt(year), parseInt(month), parseInt(day));
+        }
+    }
+
+    // Save tasks to the server
+    async function saveTasks() {
+        try {
+            await fetch('/save-task', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(allTasks)
+            });
+            console.log('Tasks saved successfully');
+        } catch (error) {
+            console.error('Error saving tasks:', error);
         }
     }
 
@@ -185,21 +204,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskDetails = taskDetailsInput.value;
         const taskDate = taskDateInput.value;
 
-        // Save or edit task in local storage
-        const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
-        if (!tasks[taskDate]) {
-            tasks[taskDate] = [];
+        // Save or edit task in local data
+        if (!allTasks[taskDate]) {
+            allTasks[taskDate] = [];
         }
 
-        if (editMode && editTaskIndex !== null) {
-            // Edit the existing task
-            tasks[editTaskDate][editTaskIndex] = { name: taskName, details: taskDetails };
-        } else {
-            // Add a new task
-            tasks[taskDate].push({ name: taskName, details: taskDetails });
-        }
-
-        localStorage.setItem('tasks', JSON.stringify(tasks));
+        allTasks[taskDate].push({ name: taskName, details: taskDetails });
+        
+        saveTasks(); // Save to the server
 
         // Refresh the calendar to show the new or edited task
         populateCalendar(currentDate);
@@ -231,11 +243,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
     });
 
-    // Initial population of the calendar
-    populateCalendar(currentDate);
-
-    // Show tasks for today by default
-    showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
-
-    
+    // Fetch tasks and initialize the calendar
+    fetchTasks();
 });
