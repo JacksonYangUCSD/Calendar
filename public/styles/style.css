@@ -56,9 +56,6 @@ main#home-main {
     height: 100%; /* Set height to fill parent container */
     max-height: 100%; /* Limit the height to the container's maximum height */
 }
-.task-modal{
-    display: hidden;
-}
 .calendar {
     display: flex;
     flex-direction: column;
@@ -251,7 +248,7 @@ main#home-main {
 
 /* Modal styles */
 .modal {
-    display: flex; /* Use flexbox to center the modal */
+    display: none; /* Use flexbox to center the modal */
     align-items: center; /* Vertically center */
     justify-content: center; /* Horizontally center */
     position: fixed;
