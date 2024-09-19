@@ -204,8 +204,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const taskDetails = taskDetailsInput.value;
         const taskDate = taskDateInput.value;
 
+        const taskData = { date: taskDate, name: taskName, details: taskDetails };
+
         // Save task to MongoDB
-        await saveTaskToMongoDB({ date: taskDate, name: taskName, details: taskDetails });
+        await saveTaskToMongoDB(taskData);
 
         // Close the modal after adding or editing the task
         taskModal.style.display = 'none';
@@ -217,18 +219,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initial population of the calendar and tasks
     populateCalendar(currentDate);
     showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
-
-    // Event listener to close the modal
-    closeModal.addEventListener('click', () => {
-        taskModal.style.display = 'none';
-    });
-
-    // Close the modal when clicking outside of it
-    window.addEventListener('click', (event) => {
-        if (event.target === taskModal) {
-            taskModal.style.display = 'none';
-        }
-    });
 
     // Event listeners for month navigation
     prevButton.addEventListener('click', () => {
@@ -248,5 +238,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentDate = new Date();
         populateCalendar(currentDate);
         showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
+    });
+
+    // Event listener to close the modal
+    closeModal.addEventListener('click', () => {
+        taskModal.style.display = 'none';
+    });
+
+    // Close the modal when clicking outside of it
+    window.addEventListener('click', (event) => {
+        if (event.target === taskModal) {
+            taskModal.style.display = 'none';
+        }
     });
 });
