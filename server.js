@@ -74,3 +74,20 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+// Endpoint to delete a task from MongoDB
+app.post('/delete-task', async (req, res) => {
+  const { date, name } = req.body;
+
+  try {
+      // Find the task by date and remove the task from the tasks array
+      await tasksCollection.updateOne(
+          { date: date }, // Find by date
+          { $pull: { tasks: { name: name } } } // Remove the task with the given name
+      );
+      res.json({ message: 'Task deleted successfully!' });
+  } catch (error) {
+      console.error('Error deleting task:', error);
+      res.status(500).json({ error: 'Failed to delete task' });
+  }
+});
