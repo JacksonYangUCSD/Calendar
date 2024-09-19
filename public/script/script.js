@@ -21,11 +21,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let editTaskIndex = null;
     let editTaskDate = null;
 
-    // **Logging helper**
-    function log(message, data = null) {
-        console.log(`LOG: ${message}`, data ? JSON.stringify(data, null, 2) : '');
-    }
-
     // Fetch tasks from MongoDB and render them on the calendar
     let tasksFromMongo = await fetchTasksFromMongoDB();
 
@@ -118,8 +113,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const taskDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const tasksForDay = tasksFromMongo.find(task => task.date === taskDate)?.tasks || [];
 
-        log('Showing tasks for date', { taskDate, tasksForDay });
-
         selectedDateDisplay.textContent = `Tasks for ${taskDate}`;
         taskList.innerHTML = ''; // Clear existing tasks
 
@@ -151,6 +144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             deleteButton.classList.add('delete-task-button');
             deleteButton.addEventListener('click', async () => {
                 await deleteTaskFromMongoDB(taskDate, index); // Delete the task from MongoDB
+                tasksFromMongo = await fetchTasksFromMongoDB(); // Fetch updated tasks
                 showTasksForDate(year, month, day); // Refresh tasks after deletion
             });
 
@@ -166,7 +160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const response = await fetch('/get-tasks');
             const tasks = await response.json();
-            log('Fetched tasks from MongoDB', tasks);
+            console.log('Fetched tasks from MongoDB', tasks);
             return tasks;
         } catch (error) {
             console.error('Error fetching tasks from MongoDB:', error);
@@ -183,7 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify(taskData)
             });
             const result = await response.json();
-            log('Task saved to MongoDB', result);
+            console.log('Task saved to MongoDB', result);
         } catch (error) {
             console.error('Error saving task to MongoDB:', error);
         }
@@ -198,7 +192,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify({ date, taskIndex })
             });
             const result = await response.json();
-            log('Task deleted from MongoDB', result);
+            console.log('Task deleted from MongoDB', result);
         } catch (error) {
             console.error('Error deleting task from MongoDB:', error);
         }
@@ -214,8 +208,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const taskData = { date: taskDate, name: taskName, details: taskDetails };
 
-        // Save task to MongoDB
-        await saveTaskToMongoDB(taskData);
+        if (editMode && editTaskIndex !== null) {
+            // Editing an existing task
+            tasksFromMongo = tasksFromMongo.map(task => {
+                if (task.date === taskDate) {
+                    task.tasks[editTaskIndex] = taskData;
+                }
+                return task;
+            });
+        } else {
+            // Adding a new task
+            await saveTaskToMongoDB(taskData);
+            tasksFromMongo = await fetchTasksFromMongoDB(); // Fetch updated tasks
+        }
 
         // Close the modal after adding or editing the task
         taskModal.style.display = 'none';
