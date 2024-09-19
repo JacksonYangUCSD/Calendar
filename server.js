@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 
 // MongoDB connection URI from environment variables
 const uri = process.env.MONGO_URI;
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 let tasksCollection;
 
@@ -40,6 +40,10 @@ connectToDatabase();
 app.post('/save-task', async (req, res) => {
     const { date, name, details } = req.body;
 
+    if (!date || !name || !details) {
+        return res.status(400).json({ error: 'Missing required task data' });
+    }
+
     try {
         // Save or update tasks for the specific date
         await tasksCollection.updateOne(
@@ -58,10 +62,14 @@ app.post('/save-task', async (req, res) => {
 app.post('/delete-task', async (req, res) => {
     const { date, taskIndex } = req.body;
 
+    if (!date || taskIndex === undefined) {
+        return res.status(400).json({ error: 'Missing required data for deletion' });
+    }
+
     try {
         const task = await tasksCollection.findOne({ date });
 
-        if (task) {
+        if (task && task.tasks && task.tasks.length > taskIndex) {
             // Remove the task from the tasks array
             task.tasks.splice(taskIndex, 1);
 
