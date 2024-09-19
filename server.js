@@ -25,7 +25,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 async function connectToDatabase() {
     try {
         await client.connect();
-        const db = client.db('calendarDB'); // Replace 'calendarDB' with your database name
+        const db = client.db('calendarDB'); // Replace 'calendarDB' with your actual database name
         tasksCollection = db.collection('tasks'); // Use 'tasks' as the collection to store tasks
         console.log('Connected to MongoDB');
     } catch (error) {
@@ -36,12 +36,12 @@ async function connectToDatabase() {
 
 connectToDatabase();
 
-// Endpoint to save a task to MongoDB
+// Endpoint to save a task
 app.post('/save-task', async (req, res) => {
     const { date, name, details } = req.body;
 
     try {
-        // Save or update tasks for the specific date in MongoDB
+        // Save or update tasks for the specific date
         await tasksCollection.updateOne(
             { date: date }, // Find the task by date
             { $push: { tasks: { name, details } } }, // Push new task into the tasks array
@@ -54,7 +54,34 @@ app.post('/save-task', async (req, res) => {
     }
 });
 
-// Endpoint to retrieve all tasks from MongoDB
+// Endpoint to delete a task
+app.post('/delete-task', async (req, res) => {
+    const { date, taskIndex } = req.body;
+
+    try {
+        const task = await tasksCollection.findOne({ date });
+
+        if (task) {
+            // Remove the task from the tasks array
+            task.tasks.splice(taskIndex, 1);
+
+            // Update the tasks in the collection
+            await tasksCollection.updateOne(
+                { date },
+                { $set: { tasks: task.tasks } }
+            );
+
+            res.json({ message: 'Task deleted successfully!' });
+        } else {
+            res.status(404).json({ error: 'Task not found' });
+        }
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        res.status(500).json({ error: 'Failed to delete task' });
+    }
+});
+
+// Endpoint to retrieve all tasks
 app.get('/get-tasks', async (req, res) => {
     try {
         const tasks = await tasksCollection.find().toArray();
@@ -73,21 +100,4 @@ app.get('/', (req, res) => {
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-});
-
-// Endpoint to delete a task from MongoDB
-app.post('/delete-task', async (req, res) => {
-  const { date, name } = req.body;
-
-  try {
-      // Find the task by date and remove the task from the tasks array
-      await tasksCollection.updateOne(
-          { date: date }, // Find by date
-          { $pull: { tasks: { name: name } } } // Remove the task with the given name
-      );
-      res.json({ message: 'Task deleted successfully!' });
-  } catch (error) {
-      console.error('Error deleting task:', error);
-      res.status(500).json({ error: 'Failed to delete task' });
-  }
 });
