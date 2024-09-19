@@ -21,8 +21,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     let editTaskIndex = null;
     let editTaskDate = null;
 
+    // **Logging helper**
+    function log(message, data = null) {
+        console.log(`LOG: ${message}`, data ? JSON.stringify(data, null, 2) : '');
+    }
+
     // Fetch tasks from MongoDB and render them on the calendar
-    const tasksFromMongo = await fetchTasksFromMongoDB();
+    let tasksFromMongo = await fetchTasksFromMongoDB();
 
     // Function to populate the calendar
     function populateCalendar(date) {
@@ -113,6 +118,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const taskDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const tasksForDay = tasksFromMongo.find(task => task.date === taskDate)?.tasks || [];
 
+        log('Showing tasks for date', { taskDate, tasksForDay });
+
         selectedDateDisplay.textContent = `Tasks for ${taskDate}`;
         taskList.innerHTML = ''; // Clear existing tasks
 
@@ -159,6 +166,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const response = await fetch('/get-tasks');
             const tasks = await response.json();
+            log('Fetched tasks from MongoDB', tasks);
             return tasks;
         } catch (error) {
             console.error('Error fetching tasks from MongoDB:', error);
@@ -175,7 +183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify(taskData)
             });
             const result = await response.json();
-            console.log(result);
+            log('Task saved to MongoDB', result);
         } catch (error) {
             console.error('Error saving task to MongoDB:', error);
         }
@@ -190,7 +198,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify({ date, taskIndex })
             });
             const result = await response.json();
-            console.log(result);
+            log('Task deleted from MongoDB', result);
         } catch (error) {
             console.error('Error deleting task from MongoDB:', error);
         }
@@ -204,8 +212,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const taskDetails = taskDetailsInput.value;
         const taskDate = taskDateInput.value;
 
+        const taskData = { date: taskDate, name: taskName, details: taskDetails };
+
         // Save task to MongoDB
-        await saveTaskToMongoDB({ date: taskDate, name: taskName, details: taskDetails });
+        await saveTaskToMongoDB(taskData);
 
         // Close the modal after adding or editing the task
         taskModal.style.display = 'none';
@@ -217,18 +227,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initial population of the calendar and tasks
     populateCalendar(currentDate);
     showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
-
-    // Event listener to close the modal
-    closeModal.addEventListener('click', () => {
-        taskModal.style.display = 'none';
-    });
-
-    // Close the modal when clicking outside of it
-    window.addEventListener('click', (event) => {
-        if (event.target === taskModal) {
-            taskModal.style.display = 'none';
-        }
-    });
 
     // Event listeners for month navigation
     prevButton.addEventListener('click', () => {
@@ -248,5 +246,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentDate = new Date();
         populateCalendar(currentDate);
         showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
+    });
+
+    // Event listener to close the modal
+    closeModal.addEventListener('click', () => {
+        taskModal.style.display = 'none';
+    });
+
+    // Close the modal when clicking outside of it
+    window.addEventListener('click', (event) => {
+        if (event.target === taskModal) {
+            taskModal.style.display = 'none';
+        }
     });
 });
