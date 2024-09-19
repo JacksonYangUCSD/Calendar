@@ -21,6 +21,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let editTaskIndex = null;
     let editTaskDate = null;
 
+    // Function to save task to MongoDB
+    async function saveTaskToMongoDB(task) {
+        try {
+            const response = await fetch('/save-task', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(task)
+            });
+            const result = await response.json();
+            console.log('Task saved to MongoDB:', result);
+        } catch (error) {
+            console.error('Error saving task to MongoDB:', error);
+        }
+    }
+
     // Function to populate the calendar
     function populateCalendar(date) {
         datesContainer.innerHTML = ''; // Clear existing dates
@@ -105,7 +122,50 @@ document.addEventListener('DOMContentLoaded', () => {
         taskModal.style.display = 'block'; // Show the modal
     }
 
-    // Function to show tasks for a specific date in the sidebar
+    // Function to handle saving task locally and to MongoDB
+    taskForm.addEventListener('submit', (e) => {
+        e.preventDefault(); // Prevent form from submitting in the default way
+        const taskName = taskNameInput.value;
+        const taskDetails = taskDetailsInput.value;
+        const taskDate = taskDateInput.value;
+
+        const task = { date: taskDate, name: taskName, details: taskDetails };
+
+        // Save task to MongoDB
+        saveTaskToMongoDB(task);
+
+        // Save or edit task in local storage
+        const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
+        if (!tasks[taskDate]) {
+            tasks[taskDate] = [];
+        }
+
+        if (editMode && editTaskIndex !== null) {
+            // Edit the existing task
+            tasks[editTaskDate][editTaskIndex] = { name: taskName, details: taskDetails };
+        } else {
+            // Add a new task
+            tasks[taskDate].push({ name: taskName, details: taskDetails });
+        }
+
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+
+        // Refresh the calendar to show the new or edited task
+        populateCalendar(currentDate);
+
+        // Show tasks for the selected date after adding or editing a task
+        showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
+
+        // Close the modal after adding or editing the task
+        taskModal.style.display = 'none';
+    });
+
+    // Other event listeners for navigation, closing modal, etc.
+    closeModal.addEventListener('click', () => {
+        taskModal.style.display = 'none';
+    });
+
+    // Function to show tasks for a specific date
     function showTasksForDate(year, month, day) {
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const formattedDate = `${monthNames[month - 1]} ${day}, ${year}`; // Format the date
@@ -153,65 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Function to delete a task
-    function deleteTask(taskDate, taskIndex) {
-        const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
-        if (tasks[taskDate]) {
-            tasks[taskDate].splice(taskIndex, 1); // Remove the task from the array
-            localStorage.setItem('tasks', JSON.stringify(tasks)); // Save the updated tasks to local storage
-
-            // Refresh the task list for the current date
-            const [year, month, day] = taskDate.split('-');
-            showTasksForDate(parseInt(year), parseInt(month), parseInt(day));
-        }
-    }
-
-    // Event listener to close the modal
-    closeModal.addEventListener('click', () => {
-        taskModal.style.display = 'none';
-    });
-
-    // Close the modal when clicking outside of it
-    window.addEventListener('click', (event) => {
-        if (event.target === taskModal) {
-            taskModal.style.display = 'none';
-        }
-    });
-
-    // Handle form submission to add or edit a task
-    taskForm.addEventListener('submit', (e) => {
-        e.preventDefault(); // Prevent form from submitting in the default way
-        const taskName = taskNameInput.value;
-        const taskDetails = taskDetailsInput.value;
-        const taskDate = taskDateInput.value;
-
-        // Save or edit task in local storage
-        const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
-        if (!tasks[taskDate]) {
-            tasks[taskDate] = [];
-        }
-
-        if (editMode && editTaskIndex !== null) {
-            // Edit the existing task
-            tasks[editTaskDate][editTaskIndex] = { name: taskName, details: taskDetails };
-        } else {
-            // Add a new task
-            tasks[taskDate].push({ name: taskName, details: taskDetails });
-        }
-
-        localStorage.setItem('tasks', JSON.stringify(tasks));
-
-        // Refresh the calendar to show the new or edited task
-        populateCalendar(currentDate);
-
-        // Show tasks for the selected date after adding or editing a task
-        showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
-
-        // Close the modal after adding or editing the task
-        taskModal.style.display = 'none';
-    });
-
-    // Event listeners for month navigation
+    // Event listeners for month navigation and initial population of the calendar
     prevButton.addEventListener('click', () => {
         currentDate.setMonth(currentDate.getMonth() - 1);
         populateCalendar(currentDate);
@@ -224,7 +226,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
     });
 
-    // Event listener for "Today" button
     todayButton.addEventListener('click', () => {
         currentDate = new Date();
         populateCalendar(currentDate);
@@ -236,6 +237,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Show tasks for today by default
     showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
-
-    
 });

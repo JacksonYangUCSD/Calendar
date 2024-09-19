@@ -36,12 +36,12 @@ async function connectToDatabase() {
 
 connectToDatabase();
 
-// Endpoint to save a task
+// Endpoint to save a task to MongoDB
 app.post('/save-task', async (req, res) => {
     const { date, name, details } = req.body;
 
     try {
-        // Save or update tasks for the specific date
+        // Save or update tasks for the specific date in MongoDB
         await tasksCollection.updateOne(
             { date: date }, // Find the task by date
             { $push: { tasks: { name, details } } }, // Push new task into the tasks array
@@ -54,7 +54,7 @@ app.post('/save-task', async (req, res) => {
     }
 });
 
-// Endpoint to retrieve all tasks
+// Endpoint to retrieve all tasks from MongoDB
 app.get('/get-tasks', async (req, res) => {
     try {
         const tasks = await tasksCollection.find().toArray();
