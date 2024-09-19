@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const datesContainer = document.getElementById('dates');
     const monthYearDisplay = document.getElementById('month-year');
     const prevButton = document.querySelector('.month-nav-buttons[title="Previous month"]');
@@ -21,39 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let editTaskIndex = null;
     let editTaskDate = null;
 
-    // Function to save task to MongoDB
-    async function saveTaskToMongoDB(task) {
-        try {
-            const response = await fetch('/save-task', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(task),
-            });
-            const result = await response.json();
-            console.log('Task saved to MongoDB:', result);
-        } catch (error) {
-            console.error('Error saving task to MongoDB:', error);
-        }
-    }
-
-    // Function to delete task from MongoDB
-    async function deleteTaskFromMongoDB(date, taskIndex) {
-        try {
-            const response = await fetch('/delete-task', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ date, taskIndex }),
-            });
-            const result = await response.json();
-            console.log('Task deleted from MongoDB:', result);
-        } catch (error) {
-            console.error('Error deleting task from MongoDB:', error);
-        }
-    }
+    // Fetch tasks from MongoDB and render them on the calendar
+    const tasksFromMongo = await fetchTasksFromMongoDB();
 
     // Function to populate the calendar
     function populateCalendar(date) {
@@ -124,8 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function openAddTaskModal(day, month, year, task = null, taskIndex = null) {
         taskDateInput.value = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; // Set the date input to the selected date
 
-        if (task) {
-            // If editing a task
+        if (task) { // If editing a task
             editMode = true;
             editTaskIndex = taskIndex;
             editTaskDate = taskDateInput.value;
@@ -142,13 +110,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to show tasks for a specific date in the sidebar
     function showTasksForDate(year, month, day) {
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        const formattedDate = `${monthNames[month - 1]} ${day}, ${year}`; // Format the date
         const taskDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
-        const tasksForDay = tasks[taskDate] || [];
+        const tasksForDay = tasksFromMongo.find(task => task.date === taskDate)?.tasks || [];
 
-        selectedDateDisplay.textContent = `Tasks for ${formattedDate}`; // Show formatted date in sidebar
+        selectedDateDisplay.textContent = `Tasks for ${taskDate}`;
         taskList.innerHTML = ''; // Clear existing tasks
 
         if (tasksForDay.length === 0) {
@@ -177,8 +142,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const deleteButton = document.createElement('button');
             deleteButton.textContent = 'Delete';
             deleteButton.classList.add('delete-task-button');
-            deleteButton.addEventListener('click', () => {
-                deleteTask(taskDate, index); // Call deleteTask function
+            deleteButton.addEventListener('click', async () => {
+                await deleteTaskFromMongoDB(taskDate, index); // Delete the task from MongoDB
+                showTasksForDate(year, month, day); // Refresh tasks after deletion
             });
 
             buttonContainer.appendChild(editButton);
@@ -188,62 +154,80 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Function to delete a task
-    async function deleteTask(taskDate, taskIndex) {
-        // Fetch tasks from local storage
-        const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
-        if (tasks[taskDate]) {
-            // Remove the task from the array
-            const deletedTask = tasks[taskDate].splice(taskIndex, 1)[0]; // Get the task that was deleted
-            localStorage.setItem('tasks', JSON.stringify(tasks)); // Save the updated tasks to local storage
+    // Fetch tasks from MongoDB
+    async function fetchTasksFromMongoDB() {
+        try {
+            const response = await fetch('/get-tasks');
+            const tasks = await response.json();
+            return tasks;
+        } catch (error) {
+            console.error('Error fetching tasks from MongoDB:', error);
+            return [];
+        }
+    }
 
-            // Send a request to delete the task from MongoDB
-            try {
-                await deleteTaskFromMongoDB(taskDate, taskIndex);
-            } catch (error) {
-                console.error('Error deleting task from MongoDB:', error);
-            }
+    // Save a task to MongoDB
+    async function saveTaskToMongoDB(taskData) {
+        try {
+            const response = await fetch('/save-task', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(taskData)
+            });
+            const result = await response.json();
+            console.log(result);
+        } catch (error) {
+            console.error('Error saving task to MongoDB:', error);
+        }
+    }
 
-            // Refresh the task list for the current date
-            const [year, month, day] = taskDate.split('-');
-            showTasksForDate(parseInt(year), parseInt(month), parseInt(day));
+    // Delete a task from MongoDB
+    async function deleteTaskFromMongoDB(date, taskIndex) {
+        try {
+            const response = await fetch('/delete-task', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date, taskIndex })
+            });
+            const result = await response.json();
+            console.log(result);
+        } catch (error) {
+            console.error('Error deleting task from MongoDB:', error);
         }
     }
 
     // Handle form submission to add or edit a task
-    taskForm.addEventListener('submit', (e) => {
+    taskForm.addEventListener('submit', async (e) => {
         e.preventDefault(); // Prevent form from submitting in the default way
+
         const taskName = taskNameInput.value;
         const taskDetails = taskDetailsInput.value;
         const taskDate = taskDateInput.value;
 
-        // Save or edit task in local storage
-        const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
-        if (!tasks[taskDate]) {
-            tasks[taskDate] = [];
-        }
-
-        if (editMode && editTaskIndex !== null) {
-            // Edit the existing task
-            tasks[editTaskDate][editTaskIndex] = { name: taskName, details: taskDetails };
-        } else {
-            // Add a new task
-            tasks[taskDate].push({ name: taskName, details: taskDetails });
-        }
-
-        localStorage.setItem('tasks', JSON.stringify(tasks));
-
         // Save task to MongoDB
-        saveTaskToMongoDB({ date: taskDate, name: taskName, details: taskDetails });
-
-        // Refresh the calendar to show the new or edited task
-        populateCalendar(currentDate);
-
-        // Show tasks for the selected date after adding or editing a task
-        showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
+        await saveTaskToMongoDB({ date: taskDate, name: taskName, details: taskDetails });
 
         // Close the modal after adding or editing the task
         taskModal.style.display = 'none';
+
+        // Refresh the tasks for the selected date
+        showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
+    });
+
+    // Initial population of the calendar and tasks
+    populateCalendar(currentDate);
+    showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
+
+    // Event listener to close the modal
+    closeModal.addEventListener('click', () => {
+        taskModal.style.display = 'none';
+    });
+
+    // Close the modal when clicking outside of it
+    window.addEventListener('click', (event) => {
+        if (event.target === taskModal) {
+            taskModal.style.display = 'none';
+        }
     });
 
     // Event listeners for month navigation
@@ -265,22 +249,4 @@ document.addEventListener('DOMContentLoaded', () => {
         populateCalendar(currentDate);
         showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
     });
-
-    // Event listener to close the modal
-    closeModal.addEventListener('click', () => {
-        taskModal.style.display = 'none';
-    });
-
-    // Close the modal when clicking outside of it
-    window.addEventListener('click', (event) => {
-        if (event.target === taskModal) {
-            taskModal.style.display = 'none';
-        }
-    });
-
-    // Initial population of the calendar
-    populateCalendar(currentDate);
-
-    // Show tasks for today by default
-    showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
 });
