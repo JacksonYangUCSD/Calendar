@@ -27,8 +27,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let tasksFromMongo = await fetchTasksFromMongoDB();
 
     // ----------------- LOGIN MODAL -----------------
-    const loginButton = document.getElementById('login-button');
-    const loginModal = document.getElementById('login-modal');
+    const loginButton = document.getElementById('login-btn');
+    const loginModal = document.getElementById('login-modal1');
     const closeLoginModal = document.getElementById('close-login-modal');
     const loginForm = document.getElementById('login-form');
 
