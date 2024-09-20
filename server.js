@@ -1,124 +1,108 @@
+// Load environment variables from .env file
 require('dotenv').config();
+
 const express = require('express');
 const { MongoClient } = require('mongodb');
 const bodyParser = require('body-parser');
 const path = require('path');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// MongoDB connection URI from environment variables
 const uri = process.env.MONGO_URI;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
-let usersCollection;
 let tasksCollection;
 
+// Middleware to parse incoming JSON data
 app.use(bodyParser.json());
+
+// Serve static files (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Middleware to authenticate users based on JWT
-function authenticate(req, res, next) {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-
-    if (!token) {
-        return res.status(401).json({ error: 'No token provided' });
-    }
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.userId = decoded.userId;
-        next();
-    } catch (error) {
-        return res.status(401).json({ error: 'Invalid token' });
-    }
-}
-
-// Connect to MongoDB and initialize collections
+// Connect to MongoDB and set up the tasks collection
 async function connectToDatabase() {
     try {
         await client.connect();
-        const db = client.db('calendarDB');
-        usersCollection = db.collection('users');
-        tasksCollection = db.collection('tasks');
+        const db = client.db('calendarDB'); // Replace 'calendarDB' with your actual database name
+        tasksCollection = db.collection('tasks'); // Use 'tasks' as the collection to store tasks
         console.log('Connected to MongoDB');
     } catch (error) {
         console.error('Error connecting to MongoDB:', error);
-        process.exit(1);
+        process.exit(1); // Exit the process if unable to connect
     }
 }
 
 connectToDatabase();
 
-// Register a new user
-app.post('/register', async (req, res) => {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Missing username or password' });
-    }
-
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = { username, password: hashedPassword };
-        await usersCollection.insertOne(newUser);
-        res.json({ message: 'User registered successfully!' });
-    } catch (error) {
-        console.error('Error registering user:', error);
-        res.status(500).json({ error: 'Failed to register user' });
-    }
-});
-
-// Log in a user
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Missing username or password' });
-    }
-
-    try {
-        const user = await usersCollection.findOne({ username });
-
-        if (!user) {
-            return res.status(400).json({ error: 'Invalid credentials' });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-
-        if (!isMatch) {
-            return res.status(400).json({ error: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token, message: 'Logged in successfully!' });
-    } catch (error) {
-        console.error('Error logging in:', error);
-        res.status(500).json({ error: 'Failed to log in' });
-    }
-});
-
-// Save task (protected by authentication)
-app.post('/save-task', authenticate, async (req, res) => {
+// Endpoint to save a task
+app.post('/save-task', async (req, res) => {
     const { date, name, details } = req.body;
-    const userId = req.userId; // Available from JWT after authentication
 
     if (!date || !name || !details) {
         return res.status(400).json({ error: 'Missing required task data' });
     }
 
     try {
+        // Save or update tasks for the specific date
         await tasksCollection.updateOne(
-            { date, userId },
-            { $push: { tasks: { name, details } } },
-            { upsert: true }
+            { date: date }, // Find the task by date
+            { $push: { tasks: { name, details } } }, // Push new task into the tasks array
+            { upsert: true } // Insert if not found
         );
         res.json({ message: 'Task saved successfully!' });
     } catch (error) {
         console.error('Error saving task:', error);
         res.status(500).json({ error: 'Failed to save task' });
     }
+});
+
+// Endpoint to delete a task
+app.post('/delete-task', async (req, res) => {
+    const { date, taskIndex } = req.body;
+
+    if (!date || taskIndex === undefined) {
+        return res.status(400).json({ error: 'Missing required data for deletion' });
+    }
+
+    try {
+        const task = await tasksCollection.findOne({ date });
+
+        if (task && task.tasks && task.tasks.length > taskIndex) {
+            // Remove the task from the tasks array
+            task.tasks.splice(taskIndex, 1);
+
+            // Update the tasks in the collection
+            await tasksCollection.updateOne(
+                { date },
+                { $set: { tasks: task.tasks } }
+            );
+
+            res.json({ message: 'Task deleted successfully!' });
+        } else {
+            res.status(404).json({ error: 'Task not found' });
+        }
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        res.status(500).json({ error: 'Failed to delete task' });
+    }
+});
+
+// Endpoint to retrieve all tasks
+app.get('/get-tasks', async (req, res) => {
+    try {
+        const tasks = await tasksCollection.find().toArray();
+        res.json(tasks);
+    } catch (error) {
+        console.error('Error fetching tasks:', error);
+        res.status(500).json({ error: 'Failed to fetch tasks' });
+    }
+});
+
+// Serve the main HTML file
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Start the server
