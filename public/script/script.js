@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const taskNameInput = document.getElementById('task-name');
     const taskDetailsInput = document.getElementById('task-details');
 
+    // Login tracking
+    let isLoggedIn = false; // Track login status
     let currentDate = new Date();
     let editMode = false;
     let editTaskIndex = null;
@@ -23,6 +25,47 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Fetch tasks from MongoDB and render them on the calendar
     let tasksFromMongo = await fetchTasksFromMongoDB();
+
+    // ----------------- LOGIN MODAL -----------------
+    const loginButton = document.getElementById('login-button');
+    const loginModal = document.getElementById('login-modal');
+    const closeLoginModal = document.getElementById('close-login-modal');
+    const loginForm = document.getElementById('login-form');
+
+    // Open the login modal
+    loginButton.addEventListener('click', () => {
+        loginModal.style.display = 'block';
+    });
+
+    // Close the login modal when the close button is clicked
+    closeLoginModal.addEventListener('click', () => {
+        loginModal.style.display = 'none';
+    });
+
+    // Handle the login form submission
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const username = document.getElementById('login-username').value;
+        const password = document.getElementById('login-password').value;
+
+        // For now, we'll just log the credentials (you can replace this with a call to your backend)
+        console.log(`Username: ${username}, Password: ${password}`);
+
+        // Set login status to true (this can be extended to real authentication)
+        isLoggedIn = true;
+
+        // Hide the login modal
+        loginModal.style.display = 'none';
+    });
+
+    // Close the login modal if the user clicks outside of it
+    window.addEventListener('click', (event) => {
+        if (event.target === loginModal) {
+            loginModal.style.display = 'none';
+        }
+    });
+    // --------------- END LOGIN MODAL ---------------
 
     // Function to populate the calendar
     function populateCalendar(date) {
@@ -66,7 +109,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Add event listener for "Add Task" button
             dateDiv.querySelector('.add-task-button').addEventListener('click', (e) => {
                 e.stopPropagation(); // Prevent triggering the date click event
-                openAddTaskModal(day, month, year);
+                if (isLoggedIn) {
+                    openAddTaskModal(day, month, year); // Open modal if logged in
+                } else {
+                    alert('You must log in to add tasks.'); // Show alert if not logged in
+                }
             });
 
             // Add event listener for clicking on the date to show tasks
@@ -253,12 +300,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         showTasksForDate(currentDate.getFullYear(), currentDate.getMonth() + 1, currentDate.getDate());
     });
 
-    // Event listener to close the modal
+    // Event listener to close the task modal
     closeModal.addEventListener('click', () => {
         taskModal.style.display = 'none';
     });
 
-    // Close the modal when clicking outside of it
+    // Close the task modal when clicking outside of it
     window.addEventListener('click', (event) => {
         if (event.target === taskModal) {
             taskModal.style.display = 'none';
