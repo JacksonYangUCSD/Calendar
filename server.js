@@ -1,10 +1,57 @@
+require('dotenv').config();
+const express = require('express');
+const { MongoClient } = require('mongodb');
+const bodyParser = require('body-parser');
+const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// In-memory store for users (this should ideally be in MongoDB)
-const usersCollection = db.collection('users');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Endpoint to register a new user
+const uri = process.env.MONGO_URI;
+const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+
+let usersCollection;
+let tasksCollection;
+
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Middleware to authenticate users based on JWT
+function authenticate(req, res, next) {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+
+    if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.userId = decoded.userId;
+        next();
+    } catch (error) {
+        return res.status(401).json({ error: 'Invalid token' });
+    }
+}
+
+// Connect to MongoDB and initialize collections
+async function connectToDatabase() {
+    try {
+        await client.connect();
+        const db = client.db('calendarDB');
+        usersCollection = db.collection('users');
+        tasksCollection = db.collection('tasks');
+        console.log('Connected to MongoDB');
+    } catch (error) {
+        console.error('Error connecting to MongoDB:', error);
+        process.exit(1);
+    }
+}
+
+connectToDatabase();
+
+// Register a new user
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
 
@@ -13,17 +60,9 @@ app.post('/register', async (req, res) => {
     }
 
     try {
-        // Hash the password before storing
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        const newUser = {
-            username,
-            password: hashedPassword,
-        };
-
-        // Save the user in the users collection
+        const newUser = { username, password: hashedPassword };
         await usersCollection.insertOne(newUser);
-
         res.json({ message: 'User registered successfully!' });
     } catch (error) {
         console.error('Error registering user:', error);
@@ -31,7 +70,7 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// Endpoint to log in a user
+// Log in a user
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
 
@@ -52,11 +91,7 @@ app.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Invalid credentials' });
         }
 
-        // Generate a JWT token
-        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-            expiresIn: '1h',
-        });
-
+        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
         res.json({ token, message: 'Logged in successfully!' });
     } catch (error) {
         console.error('Error logging in:', error);
@@ -64,27 +99,10 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Middleware to authenticate users based on JWT
-function authenticate(req, res, next) {
-    const token = req.header('Authorization').replace('Bearer ', '');
-
-    if (!token) {
-        return res.status(401).json({ error: 'No token provided' });
-    }
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.userId = decoded.userId;
-        next();
-    } catch (error) {
-        return res.status(401).json({ error: 'Invalid token' });
-    }
-}
-
-// Example of how to protect the task routes with the authenticate middleware
+// Save task (protected by authentication)
 app.post('/save-task', authenticate, async (req, res) => {
     const { date, name, details } = req.body;
-    const userId = req.userId; // This will be available thanks to the authenticate middleware
+    const userId = req.userId; // Available from JWT after authentication
 
     if (!date || !name || !details) {
         return res.status(400).json({ error: 'Missing required task data' });
@@ -92,7 +110,7 @@ app.post('/save-task', authenticate, async (req, res) => {
 
     try {
         await tasksCollection.updateOne(
-            { date: date, userId: userId }, // Now we're saving the task based on userId
+            { date, userId },
             { $push: { tasks: { name, details } } },
             { upsert: true }
         );
@@ -101,4 +119,9 @@ app.post('/save-task', authenticate, async (req, res) => {
         console.error('Error saving task:', error);
         res.status(500).json({ error: 'Failed to save task' });
     }
+});
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
