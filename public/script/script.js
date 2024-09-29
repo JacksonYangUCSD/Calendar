@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const taskDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const tasksForDay = tasksFromMongo.find(task => task.date === taskDate)?.tasks || [];
 
-        selectedDateDisplay.textContent = `Tasks for ${taskDate}`;
+        selectedDateDisplay.textContent = `${taskDate}`;
         taskList.innerHTML = ''; // Clear existing tasks
 
         if (tasksForDay.length === 0) {
